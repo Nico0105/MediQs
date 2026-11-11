@@ -1,4 +1,4 @@
-# SSC — Sistema de Seguimiento de Cirugías Especializadas
+# MediQs — Sistema de Seguimiento de Cirugías Especializadas
 
 Monorepo con dos proyectos independientes:
 
