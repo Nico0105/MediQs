@@ -1,10 +1,11 @@
 // ======================================================
-// SSC Mobile — App principal (App.tsx)
+// MediQs Mobile — App principal (App.tsx)
 // Orquesta la sesión y la navegación de la app:
 //   - Sin login: tablero público para familiares + acceso
 //     al login del paciente.
 //   - Con login (rol paciente): pestañas Mis cirugías
-//     (con checklist), Síntomas, Seguimiento y Perfil.
+//     (con checklist), Mensajes (consultas a recepción +
+//     indicaciones y cuidados), Síntomas, Seguimiento y Perfil.
 // La sesión JWT se restaura y RENUEVA al abrir la app
 // (expo-secure-store + POST /api/auth/refresh) y al
 // iniciar sesión se registra el token de push (FCM).
@@ -21,9 +22,10 @@ import SurgeriesScreen from './src/screens/SurgeriesScreen';
 import SymptomsScreen from './src/screens/SymptomsScreen';
 import PostopScreen from './src/screens/PostopScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import MessagesScreen from './src/screens/MessagesScreen';
 
 /** Pestañas disponibles según haya sesión o no. */
-type Tab = 'board' | 'login' | 'surgeries' | 'symptoms' | 'postop' | 'profile';
+type Tab = 'board' | 'login' | 'surgeries' | 'messages' | 'symptoms' | 'postop' | 'profile';
 
 const GUEST_TABS: { key: Tab; label: string }[] = [
   { key: 'board', label: 'Tablero' },
@@ -32,6 +34,7 @@ const GUEST_TABS: { key: Tab; label: string }[] = [
 
 const PATIENT_TABS: { key: Tab; label: string }[] = [
   { key: 'surgeries', label: 'Cirugías' },
+  { key: 'messages', label: 'Mensajes' },
   { key: 'symptoms', label: 'Síntomas' },
   { key: 'postop', label: 'Seguimiento' },
   { key: 'profile', label: 'Perfil' },
@@ -90,6 +93,7 @@ export default function App() {
         {tab === 'board' && <BoardScreen />}
         {tab === 'login' && <LoginScreen onLogin={handleLogin} />}
         {tab === 'surgeries' && user && <SurgeriesScreen />}
+        {tab === 'messages' && user && <MessagesScreen />}
         {tab === 'symptoms' && user && <SymptomsScreen />}
         {tab === 'postop' && user && <PostopScreen />}
         {tab === 'profile' && user && (

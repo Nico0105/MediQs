@@ -1,6 +1,8 @@
 // ======================================================
 // Rutas de autenticación (/api/auth)
 // - POST /login : valida credenciales y emite el JWT.
+// - POST /patient-login : login del PACIENTE (app móvil) con el
+//                 email cargado en su ficha + su DNI.
 // - GET  /me    : devuelve el usuario de la sesión actual
 //                 (usado por el frontend al recargar la página).
 // El login está protegido con rate limiting para frenar
@@ -10,7 +12,9 @@ import { Router } from "express";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma.js";
-import { signToken, comparePassword } from "../lib/auth.js";
+import { randomBytes } from "crypto";
+import { signToken, comparePassword, hashPassword } from "../lib/auth.js";
+import { HttpError } from "../middleware/error.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -63,6 +67,78 @@ router.post("/login", loginLimiter, async (req, res, next) => {
       roles: user.roles.map((r) => r.role),
     });
     res.json({ token, user: toPublicUser(user) });
+  } catch (e) { next(e); }
+});
+
+const patientLoginSchema = z.object({
+  email: z.string().trim().email(),
+  documentId: z.string().trim().min(1),
+});
+
+/** DNI sin puntos, guiones ni espacios ("30.111.222" → "30111222"). */
+function normalizeDocument(doc: string) {
+  return doc.replace(/[.\s-]/g, "");
+}
+
+/**
+ * Login del paciente desde la app móvil: email de su ficha + DNI.
+ * Si el paciente todavía no tiene cuenta de acceso, se le crea una
+ * (rol "paciente") y se vincula a su ficha en el primer ingreso.
+ */
+router.post("/patient-login", loginLimiter, async (req, res, next) => {
+  try {
+    const { email, documentId } = patientLoginSchema.parse(req.body);
+    const doc = normalizeDocument(documentId);
+    const invalid = () => res.status(401).json({ error: "Email o DNI incorrectos" });
+
+    const patient = await prisma.patient.findFirst({
+      where: { documentId: { in: [...new Set([documentId, doc])] }, deletedAt: null },
+    });
+    // Mismo mensaje si no existe el DNI o el email no coincide.
+    if (!patient || !patient.email || patient.email.trim().toLowerCase() !== email.toLowerCase()) {
+      return invalid();
+    }
+
+    const user = await prisma.$transaction(async (tx) => {
+      // 1) Ya tiene cuenta vinculada.
+      if (patient.userId) {
+        return tx.user.findUnique({ where: { id: patient.userId }, include: { roles: true } });
+      }
+      // 2) Existe una cuenta con ese email: sólo se vincula si es de paciente y está libre.
+      const existing = await tx.user.findFirst({
+        where: { email: { equals: email, mode: "insensitive" } },
+        include: { roles: true, patient: { select: { id: true } } },
+      });
+      if (existing) {
+        const isPatientAccount = existing.roles.every((r) => r.role === "paciente");
+        if (!isPatientAccount || existing.patient) {
+          throw new HttpError(409, "Ya existe otra cuenta con ese email. Contactá al hospital.");
+        }
+        await tx.patient.update({ where: { id: patient.id }, data: { userId: existing.id } });
+        return existing;
+      }
+      // 3) Primer ingreso: se crea la cuenta de paciente y se vincula.
+      return tx.user.create({
+        data: {
+          email: patient.email!.trim().toLowerCase(),
+          fullName: `${patient.firstName} ${patient.lastName}`,
+          // Contraseña aleatoria: el paciente entra con email + DNI.
+          passwordHash: await hashPassword(randomBytes(24).toString("hex")),
+          roles: { create: { role: "paciente" } },
+          patient: { connect: { id: patient.id } },
+        },
+        include: { roles: true },
+      });
+    });
+
+    if (!user || !user.roles.some((r) => r.role === "paciente")) return invalid();
+    if (!user.active) {
+      return res.status(401).json({ error: "Tu cuenta está desactivada. Contactá al hospital." });
+    }
+
+    const roles = user.roles.map((r) => r.role);
+    const token = signToken({ sub: user.id, email: user.email, roles });
+    res.json({ token, user: { ...toPublicUser(user), patientId: patient.id } });
   } catch (e) { next(e); }
 });
 

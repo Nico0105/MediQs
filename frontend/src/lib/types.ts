@@ -97,6 +97,9 @@ export interface ChecklistItem {
   checked: boolean;
   checkedAt: string | null;
   checkedByUser: { fullName: string } | null;
+  /** Marca propia del paciente desde la app ("Lo hice"). */
+  patientChecked: boolean;
+  patientCheckedAt: string | null;
 }
 
 /** Control de seguimiento postoperatorio. */

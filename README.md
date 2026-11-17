@@ -4,7 +4,7 @@ Monorepo con tres proyectos independientes:
 
 - **`backend/`** — API REST + WebSocket (Node.js + Express + TypeScript + Prisma + PostgreSQL)
 - **`frontend/`** — Plataforma web (panel del staff + portal del paciente + pantalla pública) — React + Vite + Tailwind
-- **`ssc-mobile/`** — App móvil del paciente y familiares (React Native + Expo)
+- **`mediqs-mobile/`** — App móvil del paciente y familiares (React Native + Expo)
 
 ## Tecnologías y APIs
 
@@ -77,11 +77,14 @@ npm run dev                # http://localhost:3000
 
 ### 6. App móvil (opcional)
 ```bash
-cd ssc-mobile
+cd mediqs-mobile
 npm install
 npm start                  # Expo; escanear el QR con Expo Go
 ```
-> En un dispositivo físico, editá `API_URL` en `ssc-mobile/App.tsx` con la IP local de la máquina que corre el backend.
+> Usa **Expo SDK 58** (Expo Go de Play Store / App Store). El celular y la PC tienen que estar
+> en la misma red Wi‑Fi; la app detecta sola la IP de la PC y se conecta al backend en el
+> puerto 4000. El paciente ingresa con el **email de su ficha + su DNI**.
+> Detalle y solución de problemas: [`mediqs-mobile/README.md`](mediqs-mobile/README.md).
 
 ## Arquitectura
 

@@ -7,15 +7,21 @@
 //
 //   GET  /me/patient                → sus datos personales
 //   GET  /me/surgeries              → sus cirugías (con timeline)
-//   GET  /me/surgeries/:id/checklist→ su checklist (sólo lectura)
+//   GET  /me/surgeries/:id/checklist→ su checklist
+//   PATCH /me/checklist-items/:id   → marcar "Lo hice" (marca propia,
+//                                     no reemplaza la verificación del staff)
 //   GET  /me/postop                 → sus controles/indicaciones
 //   GET  /me/symptoms               → sus reportes de síntomas
 //   POST /me/symptoms               → registrar síntomas del día
 //   GET  /me/messages               → mensajes que le dejó su médico
 //   GET  /me/history                → su historial consolidado
+//   GET  /me/inquiries              → sus consultas a recepción
+//   POST /me/inquiries              → nueva consulta (24 h / 48 h)
+//   GET  /me/care-guide             → indicaciones pre/postop y cuidados
 // ======================================================
 import { Router } from "express";
 import type { Request } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 import { HttpError } from "../middleware/error.js";
@@ -23,6 +29,8 @@ import { getOrCreateChecklist } from "./checklists.js";
 import { symptomSchema } from "./symptoms.js";
 import { buildPatientHistory } from "./history.js";
 import { MESSAGE_INCLUDE } from "./messages.js";
+import { computeDueAt, emitNewInquiry, INQUIRY_INCLUDE, inquirySchema, RESPONSE_HOURS } from "./inquiries.js";
+import { buildCareGuide } from "../lib/care-guide.js";
 
 const router = Router();
 // Montado en /api: middleware acotado a /me (ver checklists.ts).
@@ -75,6 +83,35 @@ router.get("/me/surgeries/:id/checklist", async (req, res, next) => {
     });
     if (!surgery) return res.status(404).json({ error: "Cirugía no encontrada" });
     res.json(await getOrCreateChecklist(surgery.id));
+  } catch (e) { next(e); }
+});
+
+/**
+ * El paciente marca/desmarca un ítem de SU checklist ("Lo hice").
+ * Se guarda en patientChecked, aparte de la verificación del personal
+ * (checked), que el paciente nunca puede modificar. Sólo se permite
+ * mientras la cirugía está programada (es preparación preoperatoria).
+ */
+router.patch("/me/checklist-items/:id", async (req, res, next) => {
+  try {
+    const patient = await getOwnPatient(req);
+    const { checked } = z.object({ checked: z.boolean() }).parse(req.body);
+
+    const item = await prisma.surgeryChecklistItem.findFirst({
+      where: { id: req.params.id, surgery: { patientId: patient.id } },
+      include: { surgery: { select: { status: true } } },
+    });
+    if (!item) throw new HttpError(404, "Ítem no encontrado");
+    if (item.surgery.status !== "programada") {
+      throw new HttpError(409, "La cirugía ya no está programada: el checklist no se puede modificar");
+    }
+
+    const updated = await prisma.surgeryChecklistItem.update({
+      where: { id: item.id },
+      data: { patientChecked: checked, patientCheckedAt: checked ? new Date() : null },
+      include: { checkedByUser: { select: { fullName: true } } },
+    });
+    res.json(updated);
   } catch (e) { next(e); }
 });
 
@@ -150,6 +187,65 @@ router.get("/me/history", async (req, res, next) => {
   try {
     const patient = await getOwnPatient(req);
     res.json(await buildPatientHistory(patient.id));
+  } catch (e) { next(e); }
+});
+
+/** Consultas propias a recepción, de la más reciente a la más vieja. */
+router.get("/me/inquiries", async (req, res, next) => {
+  try {
+    const patient = await getOwnPatient(req);
+    const list = await prisma.patientInquiry.findMany({
+      where: { patientId: patient.id },
+      orderBy: { createdAt: "desc" },
+      include: INQUIRY_INCLUDE,
+    });
+    res.json(list);
+  } catch (e) { next(e); }
+});
+
+/**
+ * Nueva consulta a recepción. La urgencia define el plazo de respuesta
+ * (urgente 24 h, normal 48 h). Devuelve la consulta creada junto con la
+ * guía de cuidados, que la app muestra apenas se envía el mensaje.
+ */
+router.post("/me/inquiries", async (req, res, next) => {
+  try {
+    const patient = await getOwnPatient(req);
+    const data = inquirySchema.parse(req.body);
+
+    if (data.surgeryId) {
+      const owns = await prisma.surgery.findFirst({
+        where: { id: data.surgeryId, patientId: patient.id },
+      });
+      if (!owns) throw new HttpError(400, "La cirugía indicada no te pertenece");
+    }
+
+    const inquiry = await prisma.patientInquiry.create({
+      data: {
+        patientId: patient.id,
+        surgeryId: data.surgeryId ?? null,
+        subject: data.subject,
+        body: data.body,
+        urgency: data.urgency,
+        dueAt: computeDueAt(data.urgency),
+      },
+      include: INQUIRY_INCLUDE,
+    });
+    emitNewInquiry(inquiry.id, inquiry.urgency);
+
+    res.status(201).json({
+      inquiry,
+      responseHours: RESPONSE_HOURS[inquiry.urgency],
+      careGuide: await buildCareGuide(patient.id),
+    });
+  } catch (e) { next(e); }
+});
+
+/** Indicaciones preoperatorias, postoperatorias y cuidados en casa. */
+router.get("/me/care-guide", async (req, res, next) => {
+  try {
+    const patient = await getOwnPatient(req);
+    res.json(await buildCareGuide(patient.id));
   } catch (e) { next(e); }
 });
 

@@ -30,6 +30,8 @@ Notifications.setNotificationHandler({
 
 /** Pide permiso, obtiene el token FCM del dispositivo y lo registra. */
 export async function registerMobilePush(): Promise<void> {
+  // En web (Expo web) no hay push nativo FCM: no se registra nada.
+  if (Platform.OS === 'web') return;
   try {
     // Cast local: el tipo PermissionResponse no se resuelve con esta
     // combinación de versiones de Expo, pero el shape es estable.

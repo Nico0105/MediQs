@@ -87,3 +87,13 @@ export function notifySurgeryReminder(patientId: string, surgeryId: string, hour
     { surgeryId, type: "surgery_reminder" },
   );
 }
+
+/** Push cuando recepción responde una consulta del paciente. */
+export function notifyInquiryReply(patientId: string, inquiryId: string, subject: string) {
+  return notifyPatient(
+    patientId,
+    "Recepción respondió tu consulta",
+    subject,
+    { inquiryId, type: "inquiry_reply" },
+  );
+}

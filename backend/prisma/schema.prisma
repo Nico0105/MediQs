@@ -57,6 +57,7 @@ model User {
   postopRecords  PostopRecord[]         @relation("PostopCreatedBy")
   fcmTokens      FcmToken[]
   patientMessages PatientMessage[] @relation("PatientMessageAuthor")
+  answeredInquiries PatientInquiry[] @relation("InquiryAnsweredBy")
 }
 
 model UserRole {
@@ -91,6 +92,7 @@ model Patient {
   appointments Appointment[]
   symptomReports SymptomReport[]
   messages     PatientMessage[]
+  inquiries    PatientInquiry[]
   emailLogs    EmailLog[]
 
   @@index([lastName, firstName])
@@ -132,6 +134,7 @@ model Surgery {
   checklistItems  SurgeryChecklistItem[]
   symptomReports  SymptomReport[]
   postopRecords   PostopRecord[]
+  inquiries       PatientInquiry[]
   emailLogs       EmailLog[]
 
   @@index([scheduledAt])
@@ -193,6 +196,10 @@ model SurgeryChecklistItem {
   checked   Boolean   @default(false)
   checkedAt DateTime?
   checkedBy String?
+  /// Marca PROPIA del paciente desde la app ("Lo hice"). Es independiente
+  /// de `checked`, que es la verificación del personal del hospital.
+  patientChecked   Boolean   @default(false)
+  patientCheckedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -310,6 +317,46 @@ model PatientMessage {
   author  User?   @relation("PatientMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
 
   @@index([patientId, createdAt])
+}
+
+// ------------------------------------------------------
+// Consultas del paciente a recepción
+// ------------------------------------------------------
+
+/// Urgencia que elige el paciente: define el plazo de respuesta.
+///   urgente → 24 h · normal → 48 h
+enum InquiryUrgency {
+  normal
+  urgente
+}
+
+enum InquiryStatus {
+  pendiente
+  respondida
+}
+
+/// Consulta que el paciente le envía a la recepción desde la app.
+/// `dueAt` es el vencimiento del plazo de respuesta según la urgencia.
+model PatientInquiry {
+  id           String         @id @default(uuid())
+  patientId    String
+  surgeryId    String?
+  subject      String
+  body         String
+  urgency      InquiryUrgency @default(normal)
+  status       InquiryStatus  @default(pendiente)
+  dueAt        DateTime
+  reply        String?
+  answeredById String?
+  answeredAt   DateTime?
+  createdAt    DateTime       @default(now())
+
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  surgery    Surgery? @relation(fields: [surgeryId], references: [id], onDelete: SetNull)
+  answeredBy User?    @relation("InquiryAnsweredBy", fields: [answeredById], references: [id], onDelete: SetNull)
+
+  @@index([patientId, createdAt])
+  @@index([status, dueAt])
 }
 
 // ------------------------------------------------------

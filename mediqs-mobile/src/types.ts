@@ -1,6 +1,6 @@
 // ======================================================
 // Tipos de dominio de la app móvil (src/types.ts)
-// Formas de los datos que devuelve la API del SSC.
+// Formas de los datos que devuelve la API de MediQs.
 // ======================================================
 
 export interface OwnPatient {
@@ -29,8 +29,12 @@ export interface OwnSurgery {
 export interface ChecklistItem {
   id: string;
   label: string;
+  /** Verificado por el personal del hospital. */
   checked: boolean;
   checkedAt: string | null;
+  /** Marca propia del paciente ("Lo hice"). */
+  patientChecked: boolean;
+  patientCheckedAt: string | null;
 }
 
 export interface PostopRecord {
@@ -60,6 +64,50 @@ export interface BoardItem {
   scheduledAt: string;
   waitingRoom: string | null;
   operatingRoom: { code: string; name: string } | null;
+}
+
+/** Urgencia de una consulta: define el plazo de respuesta. */
+export type InquiryUrgency = 'normal' | 'urgente';
+
+/** Plazo de respuesta (en horas) según la urgencia (espejo del backend). */
+export const RESPONSE_HOURS: Record<InquiryUrgency, number> = { urgente: 24, normal: 48 };
+
+/** Consulta del paciente a recepción. */
+export interface Inquiry {
+  id: string;
+  subject: string;
+  body: string;
+  urgency: InquiryUrgency;
+  status: 'pendiente' | 'respondida';
+  dueAt: string;
+  reply: string | null;
+  answeredAt: string | null;
+  createdAt: string;
+  surgery: { id: string; procedure: string; publicCode: string } | null;
+  answeredBy: { fullName: string } | null;
+}
+
+/** Indicaciones pre/postoperatorias y cuidados (GET /api/me/care-guide). */
+export interface CareGuide {
+  preop: string[];
+  postop: string[];
+  homeCare: string[];
+  warningSigns: string[];
+  emergencyNote: string;
+  nextSurgery: { id: string; procedure: string; scheduledAt: string; surgeonName: string | null } | null;
+  latestIndications: {
+    medication: string | null;
+    observations: string | null;
+    createdAt: string;
+    surgery: { procedure: string };
+  } | null;
+}
+
+/** Respuesta de POST /api/me/inquiries. */
+export interface InquiryCreated {
+  inquiry: Inquiry;
+  responseHours: number;
+  careGuide: CareGuide;
 }
 
 /** Catálogo de síntomas (espejo del backend). */

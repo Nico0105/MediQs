@@ -2,7 +2,9 @@
 // Panel de checklist preoperatorio (components/ChecklistPanel.tsx)
 // Lista simple de requisitos con su avance ("5 de 6 listos").
 // El staff marca/desmarca cada ítem; quién y cuándo lo hizo
-// queda en un texto gris secundario. En modo sólo lectura
+// queda en un texto gris secundario. Si el paciente marcó el
+// ítem desde la app ("Lo hice") se ve una etiqueta verde para
+// que el personal lo verifique. En modo sólo lectura
 // (portal del paciente) los ítems no son clickeables.
 // El checklist se materializa en el backend desde la plantilla
 // configurable la primera vez que se consulta.
@@ -115,7 +117,15 @@ export default function ChecklistPanel({
                   >
                     {item.checked && <Check className="h-3 w-3" strokeWidth={3} />}
                   </span>
-                  <span className={cn("flex-1 text-sm", item.checked ? "text-slate-500" : "text-slate-900")}>{item.label}</span>
+                  <span className={cn("flex-1 text-sm", item.checked ? "text-slate-500" : "text-slate-900")}>
+                    {item.label}
+                    {/* Lo que el paciente marcó desde la app, para que el staff lo verifique. */}
+                    {item.patientChecked && (
+                      <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                        Paciente: hecho{item.patientCheckedAt && ` · ${formatDateTime(item.patientCheckedAt)}`}
+                      </span>
+                    )}
+                  </span>
                   {/* Trazabilidad: quién y cuándo lo marcó, en segundo plano. */}
                   {item.checked && (
                     <span className="hidden text-xs text-slate-400 sm:block">

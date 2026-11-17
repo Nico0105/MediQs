@@ -1,9 +1,9 @@
 // ======================================================
 // Pantalla de login (src/screens/LoginScreen.tsx)
-// Autenticación con email y contraseña contra el backend
-// (JWT). Al ingresar, la sesión queda persistida en el
-// almacenamiento seguro del dispositivo y se registra el
-// token de notificaciones push.
+// El paciente ingresa con el EMAIL que tiene cargado en el
+// hospital y su número de DNI. En el primer ingreso el
+// backend le crea la cuenta automáticamente. La sesión queda
+// persistida en el dispositivo y se registra el push.
 // ======================================================
 import { useState } from 'react';
 import {
@@ -20,16 +20,19 @@ import { base, colors } from '../theme';
 
 export default function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [dni, setDni] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function submit() {
-    if (!email || !password) return;
+    if (!email.trim() || !dni.trim()) {
+      setError('Completá tu email y tu DNI.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      onLogin(await auth.login(email.trim(), password));
+      onLogin(await auth.login(email.trim(), dni.trim()));
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -42,9 +45,9 @@ export default function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) 
       style={[base.screen, { justifyContent: 'center', padding: 24 }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={[base.title, { fontSize: 32 }]}>MediQ's</Text>
+      <Text style={[base.title, { fontSize: 32 }]}>MediQs</Text>
       <Text style={[base.subtitle, { marginBottom: 24 }]}>
-        Iniciá sesión para ver tu seguimiento
+        Ingresá con el email que diste en el hospital y tu DNI
       </Text>
 
       <View style={{ gap: 12 }}>
@@ -53,17 +56,22 @@ export default function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) 
           placeholder="Email"
           placeholderTextColor={colors.textFaint}
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
+          textContentType="emailAddress"
           value={email}
           onChangeText={setEmail}
         />
         <TextInput
           style={base.input}
-          placeholder="Contraseña"
+          placeholder="DNI (sin puntos)"
           placeholderTextColor={colors.textFaint}
+          keyboardType="number-pad"
           secureTextEntry
-          value={password}
-          onChangeText={setPassword}
+          maxLength={12}
+          value={dni}
+          onChangeText={setDni}
+          onSubmitEditing={() => void submit()}
         />
 
         {error && <Text style={base.error}>{error}</Text>}
@@ -74,7 +82,7 @@ export default function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) 
       </View>
 
       <Text style={[base.meta, { textAlign: 'center', marginTop: 24 }]}>
-        ¿No tenés cuenta? Pedila en la administración del hospital.
+        ¿No podés ingresar? Verificá en recepción que tu email esté bien cargado.
       </Text>
     </KeyboardAvoidingView>
   );

@@ -67,6 +67,8 @@ export const PERMISSIONS = {
   "postop:escribir": ["admin", "jefe_quirofano", "medico", "enfermero"],
   /** Dejarle mensajes al paciente desde su historia (le llegan por email). */
   "mensajes:escribir": ["admin", "medico"],
+  /** Bandeja de consultas que los pacientes envían desde la app. */
+  "consultas:responder": ["admin", "recepcionista", "administrativo"],
   "insumos:ver": CLINICAL_READERS,
   "insumos:gestionar": ["admin", "jefe_quirofano", "enfermero"],
   "insumos:consumir": ["admin", "jefe_quirofano", "medico", "enfermero"],

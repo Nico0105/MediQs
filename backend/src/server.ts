@@ -31,6 +31,7 @@ import postopRoutes from "./routes/postop.js";
 import historyRoutes from "./routes/history.js";
 import meRoutes from "./routes/me.js";
 import messageRoutes from "./routes/messages.js";
+import inquiryRoutes from "./routes/inquiries.js";
 import fcmTokenRoutes from "./routes/fcm-tokens.js";
 import emailLogRoutes from "./routes/emails.js";
 import { startReminderScheduler } from "./lib/scheduler.js";
@@ -68,6 +69,7 @@ app.use("/api", postopRoutes);
 app.use("/api", historyRoutes);
 app.use("/api", meRoutes);
 app.use("/api", messageRoutes);
+app.use("/api", inquiryRoutes);
 // Notificaciones push y auditoría de emails.
 app.use("/api/fcm-tokens", fcmTokenRoutes);
 app.use("/api/email-logs", emailLogRoutes);

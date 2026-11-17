@@ -6,28 +6,66 @@
 //   - login / renovación de token / logout.
 //   - Wrapper de fetch que adjunta el JWT y traduce errores.
 // ======================================================
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-// URL del backend. En un dispositivo físico reemplazar por la IP
-// local de la máquina que corre el backend (ej. http://192.168.0.10:4000).
-export const API_URL = 'http://localhost:4000';
+/**
+ * URL del backend. En desarrollo el celular habla con el MISMO servidor
+ * de Expo (Metro) del que bajó la app, y Metro reenvía /api/* al backend
+ * (ver metro.config.js). Así funciona en la misma red Wi-Fi y también con
+ * `expo start --tunnel`. Se puede forzar con EXPO_PUBLIC_API_URL.
+ */
+function resolveApiUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL;
+  if (fromEnv) return fromEnv;
+  // ej. "192.168.0.10:8081" (LAN, http) o "abc.on.expo.app" (túnel, https).
+  // El túnel redirige http → https y en esa redirección los POST se
+  // convierten en GET (login roto), por eso sin puerto se usa https.
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (Platform.OS !== 'web' && hostUri) {
+    const hasPort = /:\d+$/.test(hostUri);
+    return `${hasPort ? 'http' : 'https'}://${hostUri}`;
+  }
+  return 'http://localhost:4000';
+}
 
-const TOKEN_KEY = 'ssc_token';
+export const API_URL = resolveApiUrl();
+
+const TOKEN_KEY = 'mediqs_token';
 
 /** Token en memoria (espejo de lo guardado en SecureStore). */
 let currentToken: string | null = null;
 
+/**
+ * Almacenamiento del token. expo-secure-store NO existe en web
+ * (Expo web / navegador): ahí se usa localStorage. En iOS/Android
+ * se mantiene el almacenamiento cifrado por el SO.
+ */
+const tokenStorage =
+  Platform.OS === 'web'
+    ? {
+        get: async () => globalThis.localStorage?.getItem(TOKEN_KEY) ?? null,
+        set: async (v: string) => globalThis.localStorage?.setItem(TOKEN_KEY, v),
+        remove: async () => globalThis.localStorage?.removeItem(TOKEN_KEY),
+      }
+    : {
+        get: () => SecureStore.getItemAsync(TOKEN_KEY),
+        set: (v: string) => SecureStore.setItemAsync(TOKEN_KEY, v),
+        remove: () => SecureStore.deleteItemAsync(TOKEN_KEY),
+      };
+
 /** Restaura el token guardado al abrir la app. */
 export async function loadStoredToken(): Promise<string | null> {
-  currentToken = await SecureStore.getItemAsync(TOKEN_KEY);
+  currentToken = await tokenStorage.get();
   return currentToken;
 }
 
-/** Persiste (o borra) el token de sesión en el almacenamiento seguro. */
+/** Persiste (o borra) el token de sesión en el almacenamiento del dispositivo. */
 async function persistToken(token: string | null): Promise<void> {
   currentToken = token;
-  if (token) await SecureStore.setItemAsync(TOKEN_KEY, token);
-  else await SecureStore.deleteItemAsync(TOKEN_KEY);
+  if (token) await tokenStorage.set(token);
+  else await tokenStorage.remove();
 }
 
 /** Error de API con código HTTP y mensaje del backend. */
@@ -86,11 +124,14 @@ export interface SessionUser {
 }
 
 export const auth = {
-  /** Inicia sesión y persiste el JWT en el dispositivo. */
-  async login(email: string, password: string): Promise<SessionUser> {
-    const data = await api.post<{ token: string; user: SessionUser }>('/api/auth/login', {
+  /**
+   * Login del paciente: email cargado en su ficha + DNI.
+   * Persiste el JWT en el dispositivo.
+   */
+  async login(email: string, documentId: string): Promise<SessionUser> {
+    const data = await api.post<{ token: string; user: SessionUser }>('/api/auth/patient-login', {
       email,
-      password,
+      documentId,
     });
     await persistToken(data.token);
     return data.user;

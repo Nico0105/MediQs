@@ -79,7 +79,7 @@
 
 - **No hay tests automatizados** en ningún proyecto (se recomienda Vitest + Supertest en backend como primer paso).
 - El enum de roles de la base incluye `enfermero` y `familiar` y no incluye `paciente` (mencionado en la documentación). Cambiarlo requiere una migración de PostgreSQL que debe ejecutarse contra la base real (`prisma migrate dev`).
-- Las versiones del `package.json` de `ssc-mobile` (Expo 54 + React Native 0.76) no son el par oficial del SDK; instala y tipa correctamente, pero conviene alinear con `npx expo install --fix` cuando se trabaje activamente en la app.
+- Las versiones del `package.json` de `mediqs-mobile` (Expo 54 + React Native 0.76) no son el par oficial del SDK; instala y tipa correctamente, pero conviene alinear con `npx expo install --fix` cuando se trabaje activamente en la app.
 
 ## 4. Funcionalidades que faltaban según la documentación funcional
 

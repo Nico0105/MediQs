@@ -27,6 +27,7 @@ export type EmailType =
   | "alta_medica"
   | "confirmacion_control"
   | "mensaje_medico"
+  | "respuesta_consulta"
   | "prueba";
 
 interface SendArgs {
@@ -289,5 +290,28 @@ export function sendDoctorMessage(args: {
         ${esc(args.body).replace(/\r?\n/g, "<br>")}
       </div>
       <p>También podés verlo en tu portal de MediQ's, en "Mi seguimiento".</p>`),
+  });
+}
+
+/** Respuesta de recepción a una consulta que el paciente envió desde la app. */
+export function sendInquiryReply(args: {
+  patientId: string;
+  patientEmail: string | null;
+  patientName: string;
+  subject: string;
+  reply: string;
+}) {
+  return sendEmail({
+    to: args.patientEmail,
+    type: "respuesta_consulta",
+    patientId: args.patientId,
+    subject: `Respuesta a tu consulta: ${args.subject}`,
+    html: layout("Recepción respondió tu consulta", `
+      <p>Hola ${esc(args.patientName)},</p>
+      <p>Respondimos tu consulta <strong>"${esc(args.subject)}"</strong>:</p>
+      <div style="background:#f8fafc; border-left:3px solid #1d4ed8; padding:12px 16px; margin:16px 0; white-space:normal;">
+        ${esc(args.reply).replace(/\r?\n/g, "<br>")}
+      </div>
+      <p>También podés verla en la app de MediQ's, en la pestaña "Mensajes".</p>`),
   });
 }
