@@ -64,6 +64,44 @@ Requiere **Expo SDK 58** → la app **Expo Go** de Play Store / App Store.
   backend viaja por el mismo túnel, no hace falta exponerlo aparte.
   Ojo: mientras el túnel está abierto, cualquiera con esa URL llega a tu backend.
 
+## Compilar y publicar (EAS Build)
+
+Las apps compiladas llevan el código adentro y le hablan directo al **backend
+desplegado**, así que primero tiene que estar publicado con **HTTPS** (Android e
+iOS bloquean `http://` en apps instaladas). En `eas.json` (perfil `base`) reemplazá
+`https://CAMBIAR-POR-LA-URL-DEL-BACKEND` por la URL real (sin `/api` al final).
+
+Todo se compila en la nube de Expo con la cuenta de `npx expo login`. La primera
+vez EAS pregunta si crea el proyecto y las claves de firma: aceptá (las guarda
+EAS; **no las borres**, sin ellas no se pueden publicar actualizaciones).
+
+| Objetivo | Comando | Costo |
+|----------|---------|-------|
+| **APK** para instalar a mano (tesis, demo) | `npx eas-cli build -p android --profile preview` | Gratis |
+| **Google Play** (`.aab`) | `npx eas-cli build -p android --profile production` | Cuenta de desarrollador: USD 25 (única vez) |
+| **App Store** (`.ipa`) | `npx eas-cli build -p ios --profile production` | Apple Developer Program: USD 99/año |
+
+**APK:** al terminar (10–20 min) EAS muestra un link y un QR; abrilo desde el
+celular, descargá la APK e instalala (Android pide permitir "instalar apps
+desconocidas"). No necesita ninguna tienda ni cuenta paga.
+
+**Subir a las tiendas** (cuando tengas las cuentas):
+```bash
+npx eas-cli submit -p android --profile production   # a la pista "internal" como borrador
+npx eas-cli submit -p ios --profile production       # a App Store Connect / TestFlight
+```
+- La **primera** subida a Google Play hay que hacerla a mano desde Play Console
+  (con el `.aab` que genera EAS); después `eas submit` funciona solo.
+- Ambas tiendas piden **política de privacidad** (la app maneja datos de salud),
+  capturas de pantalla, descripción y en Play el formulario de "Seguridad de datos".
+- Los números de versión de las tiendas los incrementa EAS solo
+  (`appVersionSource: remote` + `autoIncrement`). Para una versión visible nueva
+  cambiá `version` en `app.json` (ej. `1.0.0` → `1.1.0`).
+- Las notificaciones push en las apps compiladas necesitan Firebase
+  (`google-services.json` en Android, credenciales APNs en iOS); ver
+  [`../docs/NOTIFICACIONES.md`](../docs/NOTIFICACIONES.md). Sin eso la app
+  funciona igual, sólo no llegan las push.
+
 ## Estructura
 
 ```
